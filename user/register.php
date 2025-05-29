@@ -22,10 +22,17 @@ $randomNum = rand(0,10);
 
 if(isset($_POST['submit'])){
 
-    $name = mysqli_real_escape_string($conn, $_POST['name']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $pass = mysqli_real_escape_string($conn, md5($_POST['password']));
-    $cpass = mysqli_real_escape_string($conn, md5($_POST['cpassword']));
+    $name_raw = $_POST['name']; // Use raw for validation if needed, then escape for DB if not using prepared statements
+    $email_raw = $_POST['email']; // Use raw for validation
+
+    // Secure password hashing
+    $raw_password = $_POST['password'];
+    $raw_cpassword = $_POST['cpassword'];
+    $hashed_password = password_hash($raw_password, PASSWORD_DEFAULT);
+
+    // $name and $email no longer need mysqli_real_escape_string here as they will be bound.
+    // $name_raw and $email_raw will be used directly for binding.
+
     $image = $profile[$randomNum];
     $currentTimeStamp = time();
 
@@ -36,35 +43,69 @@ if(isset($_POST['submit'])){
             else
                 return false;
         }
- 
-    $select = mysqli_query($conn, "SELECT * FROM `user_form` WHERE (name='$name' or email='$email')") or die('query failed');
-    if(mysqli_num_rows($select) > 0){
-        $row = mysqli_fetch_assoc($select);
-        if($email==isset($row['email']))
-        {
-            $message[] = 'Email already exists';
+    
+    $user_exists = false; // Flag to check if user/email exists
+    $stmt_select = mysqli_prepare($conn, "SELECT name, email FROM user_form WHERE name = ? OR email = ?");
+    if ($stmt_select) {
+        mysqli_stmt_bind_param($stmt_select, "ss", $name_raw, $email_raw);
+        if (mysqli_stmt_execute($stmt_select)) {
+            $result_select = mysqli_stmt_get_result($stmt_select);
+            if ($result_select) {
+                while ($row = mysqli_fetch_assoc($result_select)) {
+                    if (isset($row['name']) && $row['name'] == $name_raw) {
+                        $message[] = 'Username already exists';
+                        $user_exists = true;
+                    }
+                    if (isset($row['email']) && $row['email'] == $email_raw) {
+                        $message[] = 'Email already exists';
+                        $user_exists = true;
+                    }
+                }
+            } else {
+                error_log("Registration user check: Getting result set failed: " . mysqli_stmt_error($stmt_select));
+                $message[] = "An error occurred. Please try again.";
+                $user_exists = true; // Prevent further processing on error
+            }
+        } else {
+            error_log("Registration user check: Statement execution failed: " . mysqli_stmt_error($stmt_select));
+            $message[] = "An error occurred. Please try again.";
+            $user_exists = true; // Prevent further processing on error
         }
-		if($name==isset($row['name']))
-		{
-			$message[] = 'Username already exists';
-		}
-		}
-else{
-     if(is_valid_username($name) === false){
-        $message[] = "Username can't contain special and uppercase character";
-     }
-       elseif($pass != $cpass){
-          $message[] = 'confirm password not matched!';
-       }else{
-          $insert = mysqli_query($conn, "INSERT INTO `user_form`(`name`, email, `password`, `image`, `date`) VALUES('$name', '$email', '$pass', '$image','$currentTimeStamp')") or die('query failed');
- 
-          if($insert){
-             move_uploaded_file($image_tmp_name, $image_folder);
-             $message[] = 'registered successfully!';
-             header('location:login.php');
-          }else{
-             $message[] = 'registeration failed!';
-          }
+        mysqli_stmt_close($stmt_select);
+    } else {
+        error_log("Registration user check: Statement preparation failed: " . mysqli_error($conn));
+        $message[] = "An error occurred. Please try again.";
+        $user_exists = true; // Prevent further processing on error
+    }
+
+    if (!$user_exists){ // Only proceed if user/email does not exist
+        if(is_valid_username($name_raw) === false){ // Validate raw name
+            $message[] = "Username can't contain special and uppercase character";
+        }
+        // Compare raw passwords
+        elseif($raw_password !== $raw_cpassword){
+            $message[] = 'Confirm password not matched!';
+        }else{
+            // INSERT query using prepared statement
+            $stmt_insert = mysqli_prepare($conn, "INSERT INTO user_form (name, email, password, image, date) VALUES (?, ?, ?, ?, ?)");
+            if ($stmt_insert) {
+                // Bind parameters: s = string, i = integer
+                // name_raw, email_raw, hashed_password, image are strings. currentTimeStamp is integer.
+                mysqli_stmt_bind_param($stmt_insert, "ssssi", $name_raw, $email_raw, $hashed_password, $image, $currentTimeStamp);
+                
+                if (mysqli_stmt_execute($stmt_insert)) {
+                    $message[] = 'Registered successfully!';
+                    header('location:login.php');
+                    exit; // Add exit after header redirect
+                } else {
+                    error_log("Registration insert: Statement execution failed: " . mysqli_stmt_error($stmt_insert));
+                    $message[] = 'Registration failed. Please try again.';
+                }
+                mysqli_stmt_close($stmt_insert);
+            } else {
+                error_log("Registration insert: Statement preparation failed: " . mysqli_error($conn));
+                $message[] = 'Registration failed. Please try again.';
+            }
        }
     }
  

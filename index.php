@@ -70,7 +70,7 @@ require('./_config.php');
             <div id="mw-top">
                 <div class="container">
                     <div class="mwt-content">
-                        <div class="mwt-icon"><img src="https://anikatsu.me/files/images/render1.png">
+                        <div class="mwt-icon"><img src="<?= $websiteUrl ?>/files/images/render1.png">
                         </div>
                         <div class="mwh-logo">
                             <a href="<?= $websiteUrl ?>/home" class="mwh-logo-div">

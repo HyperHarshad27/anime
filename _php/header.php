@@ -53,9 +53,9 @@
             <div class="nav-link" title="Status"><strong><i class="fa fa-angle-down"></i> Status</strong></div>
             <div class="sidebar_menu-sub show" id="sidebar_subs_types">
                 <ul class="nav sub-menu color-list">
-                    <li class="nav-item"><a class="nav-link" href="/status/completed" title="Completed">Completed</a>
+                    <li class="nav-item"><a class="nav-link" href="<?= $websiteUrl ?>/status/completed" title="Completed">Completed</a>
                     </li>
-                    <li class="nav-item"><a class="nav-link" href="/status/ongoing" title="Ongoing">Ongoing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="<?= $websiteUrl ?>/status/ongoing" title="Ongoing">Ongoing</a></li>
                 </ul>
             </div>
         </li>
@@ -63,11 +63,11 @@
             <div class="nav-link" title="Latest"><strong><i class="fa fa-angle-down"></i> Latest</strong></div>
             <div class="sidebar_menu-sub show" id="sidebar_subs_types">
                 <ul class="nav sub-menu color-list">
-                    <li class="nav-item"><a class="nav-link" href="/latest/subbed" title="Subbed">Subbed</a>
+                    <li class="nav-item"><a class="nav-link" href="<?= $websiteUrl ?>/latest/subbed" title="Subbed">Subbed</a>
                     </li>
-                    <li class="nav-item"><a class="nav-link" href="/latest/dubbed" title="Dubbed">Dubbed</a>
+                    <li class="nav-item"><a class="nav-link" href="<?= $websiteUrl ?>/latest/dubbed" title="Dubbed">Dubbed</a>
                     </li>
-                    <li class="nav-item"><a class="nav-link" href="/latest/chinese" title="Chinese">Chinese</a>
+                    <li class="nav-item"><a class="nav-link" href="<?= $websiteUrl ?>/latest/chinese" title="Chinese">Chinese</a>
                     </li>
                 </ul>
             </div>
@@ -204,7 +204,7 @@
         </a>
         <div id="search">
             <div class="search-content">
-                <form action="/search" autocomplete="off">
+                <form action="<?= $websiteUrl ?>/search" autocomplete="off">
                     <input type="text" class="form-control search-input" name="keyword" id="searching"
                         placeholder="Search anime..." required>
                     <button type="submit" class="search-icon"><i class="fas fa-search"></i></button>
@@ -258,26 +258,26 @@
             <div class="pick_menu-ul">
                 <ul class="ulclear">
                     <li class="pmu-item pmu-item-home">
-                        <a class="pmu-item-icon" href="/" title="Home">
-                            <img src="/files/images/pick-home.svg" data-toggle="tooltip" data-placement="right" title=""
+                        <a class="pmu-item-icon" href="<?= $websiteUrl ?>/" title="Home">
+                            <img src="<?= $websiteUrl ?>/files/images/pick-home.svg" data-toggle="tooltip" data-placement="right" title=""
                                 data-original-title="Home">
                         </a>
                     </li>
                     <li class="pmu-item pmu-item-movies">
-                        <a class="pmu-item-icon" href="/movies" title="Movies">
-                            <img src="/files/images/pick-movies.svg" data-toggle="tooltip" data-placement="right"
+                        <a class="pmu-item-icon" href="<?= $websiteUrl ?>/type/movies" title="Movies">
+                            <img src="<?= $websiteUrl ?>/files/images/pick-movies.svg" data-toggle="tooltip" data-placement="right"
                                 title="" data-original-title="Movies">
                         </a>
                     </li>
                     <li class="pmu-item pmu-item-show">
-                        <a class="pmu-item-icon" href="/tv-series" title="TV Series">
-                            <img src="/files/images/pick-show.svg" data-toggle="tooltip" data-placement="right" title=""
+                        <a class="pmu-item-icon" href="<?= $websiteUrl ?>/type/tv-series" title="TV Series">
+                            <img src="<?= $websiteUrl ?>/files/images/pick-show.svg" data-toggle="tooltip" data-placement="right" title=""
                                 data-original-title="TV Series">
                         </a>
                     </li>
                     <li class="pmu-item pmu-item-popular">
-                        <a class="pmu-item-icon" href="/most-popular-anime" title="Most Popular">
-                            <img src="/files/images/pick-popular.svg" data-toggle="tooltip" data-placement="right"
+                        <a class="pmu-item-icon" href="<?= $websiteUrl ?>/popular" title="Most Popular">
+                            <img src="<?= $websiteUrl ?>/files/images/pick-popular.svg" data-toggle="tooltip" data-placement="right"
                                 title="" data-original-title="Most Popular">
                         </a>
                     </li>
@@ -288,13 +288,39 @@
 
 
         if (isset($_COOKIE['userID'])) {
-            $user_id = $_COOKIE['userID'] ?>
-            <?php
-            $select = mysqli_query($conn, "SELECT * FROM `user_form` WHERE id = '$user_id'") or die('query failed');
-            if (mysqli_num_rows($select) > 0) {
-                $fetch = mysqli_fetch_assoc($select);
+            $user_id_cookie = $_COOKIE['userID'];
+            $fetch = null; // Initialize fetch to null
+
+            // Validate user_id as integer
+            if (filter_var($user_id_cookie, FILTER_VALIDATE_INT)) {
+                $user_id = (int)$user_id_cookie;
+
+                $stmt_user = mysqli_prepare($conn, "SELECT id, name, email, image FROM user_form WHERE id = ?");
+                if ($stmt_user) {
+                    mysqli_stmt_bind_param($stmt_user, "i", $user_id);
+                    if (mysqli_stmt_execute($stmt_user)) {
+                        $result_user = mysqli_stmt_get_result($stmt_user);
+                        if ($result_user) {
+                            $fetch = mysqli_fetch_assoc($result_user); // Will be null if no user found
+                        } else {
+                            error_log("Header user fetch: Getting result set failed: " . mysqli_stmt_error($stmt_user));
+                        }
+                    } else {
+                        error_log("Header user fetch: Statement execution failed: " . mysqli_stmt_error($stmt_user));
+                    }
+                    mysqli_stmt_close($stmt_user);
+                } else {
+                    error_log("Header user fetch: Statement preparation failed: " . mysqli_error($conn));
+                }
+            } else {
+                // Invalid user ID format in cookie, potentially clear cookie or log
+                error_log("Header user fetch: Invalid userID format in cookie: " . $user_id_cookie);
+                // To prevent further issues, ensure $fetch remains null or unset cookie
+                setcookie('userID', '', time() - 3600, '/'); // Clear invalid cookie
             }
-            ?>
+
+            // Proceed only if $fetch is not null (i.e., user was found and data fetched)
+            if ($fetch) { ?>
             <div id="header_right">
                 <div id="user-slot">
                     <div class="header_right-user logged">
@@ -302,10 +328,10 @@
                             <div class="btn-user-avatar" data-toggle="dropdown" aria-expanded="false"
                                 aria-controls="user_menu">
                                 <div class="profile-avatar">
-                                    <?php if ($fetch['image'] == '') {
-                                        echo '<img src="' . $websiteUrl . '/files/avatar/default/default.jpeg">';
+                                    <?php if (empty($fetch['image'])) { // Check if image is empty
+                                        echo '<img src="' . htmlspecialchars($websiteUrl) . '/files/avatar/default/default.jpeg">';
                                     } else {
-                                        echo '<img src="' . $websiteUrl . '/files/avatar/' . $fetch['image'] . '">';
+                                        echo '<img src="' . htmlspecialchars($websiteUrl) . '/files/avatar/' . htmlspecialchars($fetch['image']) . '">';
                                     } ?>
                                 </div>
                             </div>
@@ -313,10 +339,10 @@
                                 <div class="dropdown-item dropdown-item-user">
                                     <div class="user-detail">
                                         <div class="name"><strong>
-                                                <?php echo $fetch['name']; ?>
+                                                <?php echo htmlspecialchars($fetch['name']); ?>
                                             </strong></div>
-                                        <div class="mail"><a class="__cf_email__">
-                                                <?php echo $fetch['email']; ?>
+                                        <div class="mail"><a> 
+                                                <?php echo htmlspecialchars($fetch['email']); ?>
                                             </a>
                                         </div>
                                     </div>

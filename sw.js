@@ -3,7 +3,9 @@ self.addEventListener('install', function(event) {
     event.waitUntil(
       caches.open('sw-cache').then(function(cache) {
         // cache any static files that make up the application shell
-        return cache.add('http://localhost/anikatsu/files/css/style.css');
+        // Using a relative path, assuming sw.js is at the root.
+        // This path should be relative to the service worker's location.
+        return cache.add('./files/css/style.css'); 
       })
     );
   });

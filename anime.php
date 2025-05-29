@@ -1,10 +1,13 @@
 <?php
 session_start();
 require('./_config.php');
-if(!isset($_GET['page'])){
-    $page = 1;
-}else{
-    $page = $_GET['page']; 
+
+$page = 1; // Default value
+if (isset($_GET['page'])) {
+    $page_param = $_GET['page'];
+    if (is_numeric($page_param) && (int)$page_param > 0) {
+        $page = (int)$page_param;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -93,9 +96,25 @@ if(!isset($_GET['page'])){
                                 <div class="film_list-wrap">
 
                                 <?php 
-                                $json = file_get_contents("$api/animeList?page=$page");
-                                $json = json_decode($json, true);
-                                foreach($json as $key => $az) { ?>
+                                $json = []; // Initialize to empty array
+                                $apiUrlAnimeList = "$api/animeList?page=$page";
+                                $rawJsonAnimeList = @file_get_contents($apiUrlAnimeList); // Use @ to suppress default warning, we handle it
+
+                                if ($rawJsonAnimeList === false) {
+                                    error_log("Failed to fetch data from API: " . $apiUrlAnimeList);
+                                    // $json remains []
+                                } else {
+                                    $decodedData = json_decode($rawJsonAnimeList, true);
+                                    if ($decodedData === null && json_last_error() !== JSON_ERROR_NONE) {
+                                        error_log("JSON decoding error: " . json_last_error_msg() . " for API URL: " . $apiUrlAnimeList . " Raw data: " . substr($rawJsonAnimeList, 0, 200));
+                                        // $json remains []
+                                    } else {
+                                        $json = $decodedData; // Assign decoded data
+                                    }
+                                }
+
+                                if (is_array($json) && !empty($json)) {
+                                    foreach($json as $key => $az) { ?>
                                     <div class="flw-item">
                                         <div class="film-detail">
                                             <h3 class="film-name">
@@ -116,7 +135,11 @@ if(!isset($_GET['page'])){
                                         </div>
                                         <div class="clearfix"></div>
                                     </div>
-                                <?php } ?>
+                                <?php } // end foreach
+                                } else {
+                                    echo "<p>Could not load anime list at this time. Please try again later.</p>";
+                                }
+                                ?>
                                   
                                 </div>
                                 <div class="clearfix"></div>
@@ -147,10 +170,29 @@ if(!isset($_GET['page'])){
                                     <nav>
                                         <ul class="ulclear az-list">
                                         <?php 
-                                           $AZPage = file_get_contents("$api/anime-list-page?page=$page");
-                                           $AZPage = json_decode($AZPage, true); { ?>
-                                             <?=$AZPage['pagination']; ?>
-                                           <?php } ?>
+                                           $AZPage = null; // Initialize
+                                           $apiUrlAzPage = "$api/anime-list-page?page=$page";
+                                           $rawAzPage = @file_get_contents($apiUrlAzPage); // Use @ to suppress default warning
+
+                                           if ($rawAzPage === false) {
+                                               error_log("Failed to fetch data from API: " . $apiUrlAzPage);
+                                               // $AZPage remains null
+                                           } else {
+                                               $decodedAzPage = json_decode($rawAzPage, true);
+                                               if ($decodedAzPage === null && json_last_error() !== JSON_ERROR_NONE) {
+                                                   error_log("JSON decoding error: " . json_last_error_msg() . " for API URL: " . $apiUrlAzPage . " Raw data: " . substr($rawAzPage, 0, 200));
+                                                   // $AZPage remains null
+                                               } else {
+                                                   $AZPage = $decodedAzPage; // Assign decoded data
+                                               }
+                                           }
+
+                                           if (is_array($AZPage) && isset($AZPage['pagination'])) {
+                                               echo $AZPage['pagination'];
+                                           } else {
+                                               echo "<li>Could not load pagination.</li>";
+                                           }
+                                        ?>
                                         </ul>
                                     </nav>
                                 </div>

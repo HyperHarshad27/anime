@@ -2,7 +2,7 @@
     <div id="footer-about">
         <div class="container">
             <div class="footer-top">
-                <a href="/" class="footer-logo">
+                <a href="<?= $websiteUrl ?>/" class="footer-logo">
                     <img src="<?=$websiteLogo?>" alt="<?=$websiteTitle?>">
                     <div class="clearfix"></div>
                 </a>
@@ -31,7 +31,7 @@
                     <span class="size-s">Searching anime order by alphabet name A to Z.</span>
                 </div>
                 <ul class="ulclear az-list">
-                    <li><a href="/anime">All</a></li>
+                    <li><a href="<?= $websiteUrl ?>/anime">All</a></li>
                     <li><a href="<?=$websiteUrl?>/az-list/A">A</a>
                     </li>
                     <li><a href="<?=$websiteUrl?>/az-list/B">B</a>
