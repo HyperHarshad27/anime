@@ -10,27 +10,55 @@ if(isset($_COOKIE['userID'])){
 
 if(isset($_POST['submit'])){
 
+   $login_param = $_POST['login']; // Use the raw POST data for binding
+   $raw_password = $_POST['password']; // Raw password for password_verify
 
-   $login = mysqli_real_escape_string($conn, $_POST['login']);
-   $pass = mysqli_real_escape_string($conn, md5($_POST['password']));
-
-   $select = mysqli_query($conn, "SELECT * FROM `user_form` WHERE (name = '$login' OR email= '$login') AND password = '$pass'") or die('query failed');
-   
-
-   if(mysqli_num_rows($select) > 0){
-      $row = mysqli_fetch_assoc($select);
-      $_SESSION['userID'] = $row['id'];
-      setcookie('userID',$row['id'],time()+60*60*24*30*12,'/');
-      if(isset($_GET['animeId'])){
-        $animeId = $_GET['animeId'];
-        header('location:../anime/'.$animeId.'');
-      }else{
-      header('location:../home.php');
-      }
-   }else{
-      $message[] = 'Incorrect username/email or password!';
+   // Query to fetch user by name or email, password will be verified in PHP
+   $stmt = mysqli_prepare($conn, "SELECT id, name, email, password FROM `user_form` WHERE name = ? OR email = ?");
+   if ($stmt) {
+       // Bind only login_param (for name and email)
+       if (!mysqli_stmt_bind_param($stmt, "ss", $login_param, $login_param)) {
+           error_log("Statement binding failed: " . mysqli_stmt_error($stmt));
+           $message[] = 'Login failed. Please try again.';
+       } else {
+           if (mysqli_stmt_execute($stmt)) {
+               $result = mysqli_stmt_get_result($stmt);
+               if ($result && $row = mysqli_fetch_assoc($result)) { // Check if a row is fetched
+                   // Verify password
+                   if (password_verify($raw_password, $row['password'])) {
+                       // Password matches
+                       $_SESSION['userID'] = $row['id'];
+                       setcookie('userID',$row['id'],time()+60*60*24*30*12,'/');
+                       if(isset($_GET['animeId'])){
+                           $animeId = $_GET['animeId'];
+                           header('location:../anime/'.$animeId.'');
+                           exit; // Add exit after header redirect
+                       }else{
+                           header('location:../home.php');
+                           exit; // Add exit after header redirect
+                       }
+                   } else {
+                       // Password does not match
+                       $message[] = 'Incorrect username/email or password!';
+                   }
+               } else if (!$result && mysqli_error($conn)) { // Check if get_result failed
+                   error_log("Getting result set failed: " . mysqli_stmt_error($stmt));
+                   $message[] = 'Login failed. Please try again.';
+               }
+               else { // No user found with that username/email
+                   $message[] = 'Incorrect username/email or password!';
+               }
+               // No need to close $result explicitly, it's done when statement is closed or script ends.
+           } else {
+               error_log("Statement execution failed: " . mysqli_stmt_error($stmt));
+               $message[] = 'Login failed. Please try again.';
+           }
+           mysqli_stmt_close($stmt);
+       }
+   } else {
+       error_log("Statement preparation failed: " . mysqli_error($conn));
+       $message[] = 'Login failed. Please try again.';
    }
-
 }
 ?>
 
